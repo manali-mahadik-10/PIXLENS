@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PIXLENS — Full-Stack Image Processing Toolkit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════════════════════
+   PIXLENS — index.html
+   Full-stack frontend. Connects to Flask backend at
+   http://localhost:5000
+═══════════════════════════════════════════════════════ */
+
+:root {
+  --bg:       #070a12;
+  --surface:  #0d1220;
+  --surface2: #131929;
+  --surface3: #1a2235;
+  --border:   #1e2d45;
+  --accent:   #00e5ff;
+  --accent2:  #7c4dff;
+  --accent3:  #ff6b35;
+  --gold:     #ffd700;
+  --green:    #00e676;
+  --red:      #ff4444;
+  --text:     #e8edf5;
+  --text2:    #8899bb;
+  --text3:    #4a5a7a;
+  --glow:     0 0 20px rgba(0,229,255,0.25);
+  --glow2:    0 0 20px rgba(124,77,255,0.25);
+  --radius:   10px;
+  --sidebar-w: 270px;
+  --controls-w: 290px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html{height:100%;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'DM Sans',sans-serif;
+  height:100%;display:flex;flex-direction:column;
+  overflow:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 700px 500px at 5% 15%,  rgba(0,229,255,0.04) 0%,transparent 70%),
+    radial-gradient(ellipse 600px 600px at 95% 85%, rgba(124,77,255,0.05) 0%,transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 50%, rgba(255,107,53,0.02) 0%,transparent 70%);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--surface);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--text3);}
+
+/* ═══════════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════════ */
+header{
+  position:relative;z-index:20;
+  padding:14px 24px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  background:rgba(7,10,18,0.9);backdrop-filter:blur(20px);
+  flex-shrink:0;
+}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-icon{
+  width:38px;height:38px;border-radius:9px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;box-shadow:var(--glow);flex-shrink:0;
+}
+.logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:1.3rem;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo-sub{font-size:0.68rem;color:var(--text3);letter-spacing:0.08em;
+  font-family:'Space Mono',monospace;margin-top:1px;}
+
+.header-center{display:flex;align-items:center;gap:10px;}
+.badge{
+  padding:4px 10px;border-radius:20px;font-size:0.65rem;
+  font-family:'Space Mono',monospace;letter-spacing:0.05em;font-weight:700;
+}
+.badge-nep{background:rgba(0,229,255,0.12);color:var(--accent);border:1px solid rgba(0,229,255,0.25);}
+.badge-divp{background:rgba(124,77,255,0.12);color:#b388ff;border:1px solid rgba(124,77,255,0.25);}
+
+.header-right{display:flex;align-items:center;gap:10px;}
+#serverStatus{
+  display:flex;align-items:center;gap:7px;
+  padding:5px 12px;border-radius:6px;font-size:0.72rem;
+  font-family:'Space Mono',monospace;
+  border:1px solid var(--border);background:var(--surface);
+  transition:all 0.3s;
+}
+#serverStatus .dot{
+  width:7px;height:7px;border-radius:50%;background:var(--text3);
+  transition:background 0.3s;
+}
+#serverStatus.online .dot{background:var(--green);box-shadow:0 0 8px var(--green);}
+#serverStatus.offline .dot{background:var(--red);}
+#serverStatus.online{border-color:rgba(0,230,118,0.3);}
+
+/* ═══════════════════════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════════════════════ */
+.app-body{
+  flex:1;display:flex;overflow:hidden;position:relative;z-index:1;
+}
+
+/* ═══════════════════════════════════════════════════════
+   LEFT SIDEBAR — FILTER CATEGORIES
+═══════════════════════════════════════════════════════ */
+.sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sidebar-header{
+  padding:14px 16px 10px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sidebar-header h3{
+  font-family:'Syne',sans-serif;font-size:0.78rem;
+  color:var(--text2);letter-spacing:0.08em;text-transform:uppercase;
+}
+#filterCount{
+  font-size:0.65rem;font-family:'Space Mono',monospace;
+  color:var(--accent);background:rgba(0,229,255,0.1);
+  padding:2px 7px;border-radius:10px;
+}
+.filter-search{
+  padding:10px 12px;border-bottom:1px solid var(--border);
+}
+.filter-search input{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);padding:7px 10px;border-radius:7px;font-size:0.78rem;
+  outline:none;font-family:'DM Sans',sans-serif;
+  transition:border-color 0.2s;
+}
+.filter-search input:focus{border-color:var(--accent);}
+.filter-search input::placeholder{color:var(--text3);}
+
+.filter-list{flex:1;overflow-y:auto;padding:8px 0;}
+.filter-category-header{
+  padding:8px 16px 4px;
+  font-size:0.62rem;color:var(--text3);
+  letter-spacing:0.1em;text-transform:uppercase;
+  font-family:'Space Mono',monospace;
+}
+.filter-item{
+  padding:9px 16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;
+  transition:all 0.15s;border-left:2px solid transparent;
+  font-size:0.82rem;
+}
+.filter-item:hover{
+  background:var(--surface2);border-left-color:var(--accent2);
+  color:var(--text);
+}
+.filter-item.active{
+  background:rgba(0,229,255,0.08);border-left-color:var(--accent);
+  color:var(--accent);
+}
+.filter-item .fi-name{font-weight:500;}
+.filter-item .fi-tag{
+  font-size:0.58rem;font-family:'Space Mono',monospace;
+  padding:2px 6px;border-radius:4px;
+  background:var(--surface3);color:var(--text3);
+}
+
+/* ═══════════════════════════════════════════════════════
+   CENTER — CANVAS AREA
+═══════════════════════════════════════════════════════ */
+.canvas-area{
+  flex:1;display:flex;flex-direction:column;overflow:hidden;
+  background:var(--bg);
+}
+.canvas-toolbar{
+  padding:10px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--surface);flex-shrink:0;
+}
+.toolbar-group{display:flex;align-items:center;gap:6px;}
+.toolbar-sep{width:1px;height:22px;background:var(--border);margin:0 4px;}
+.tb-btn{
+  padding:6px 12px;border-radius:7px;font-size:0.75rem;
+  cursor:pointer;transition:all 0.15s;
+  font-family:'DM Sans',sans-serif;font-weight:500;
+  display:flex;align-items:center;gap:5px;border:1px solid transparent;
+}
+.tb-btn-ghost{
+  background:transparent;border-color:var(--border);color:var(--text2);
+}
+.tb-btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+.tb-btn-primary{
+  background:linear-gradient(135deg,var(--accent),rgba(0,200,230,0.8));
+  color:#070a12;font-weight:700;
+}
+.tb-btn-primary:hover{box-shadow:var(--glow);transform:translateY(-1px);}
+.tb-btn-primary:active{transform:translateY(0);}
+.tb-btn-primary:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
+.tb-btn-orange{
+  background:rgba(255,107,53,0.15);border-color:rgba(255,107,53,0.3);color:var(--accent3);
+}
+.tb-btn-orange:hover{background:rgba(255,107,53,0.25);}
+
+.view-modes{display:flex;gap:0;border:1px solid var(--border);border-radius:7px;overflow:hidden;}
+.view-btn{
+  padding:5px 10px;font-size:0.7rem;cursor:pointer;
+  background:transparent;color:var(--text3);transition:all 0.15s;
+  font-family:'Space Mono',monospace;border:none;
+}
+.view-btn:hover{background:var(--surface3);color:var(--text2);}
+.view-btn.active{background:var(--accent);color:#070a12;font-weight:700;}
+
+#currentFilter{
+  font-family:'Space Mono',monospace;font-size:0.72rem;
+  color:var(--accent);padding:4px 10px;border-radius:5px;
+  background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);
+}
+
+.canvas-wrapper{
+  flex:1;display:flex;overflow:hidden;position:relative;
+}
+.canvas-pane{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;position:relative;
+}
+.canvas-label{
+  position:absolute;top:10px;left:10px;z-index:10;
+  font-size:0.65rem;font-family:'Space Mono',monospace;
+  color:var(--text3);background:rgba(7,10,18,0.7);
+  padding:3px 8px;border-radius:4px;border:1px solid var(--border);
+}
+.canvas-divider{
+  width:1px;background:var(--border);flex-shrink:0;
+}
+
+canvas{
+  max-width:100%;max-height:100%;
+  object-fit:contain;cursor:crosshair;
+}
+
+/* Drop zone */
+.drop-zone{
+  width:100%;height:100%;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;
+  cursor:pointer;transition:all 0.3s;
+}
+.drop-zone:hover .dz-icon{transform:scale(1.1);}
+.drop-zone.dragover{background:rgba(0,229,255,0.05);}
+.dz-icon{
+  width:70px;height:70px;border-radius:50%;
+  background:rgba(0,229,255,0.08);border:2px dashed rgba(0,229,255,0.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;transition:transform 0.3s;
+}
+.dz-text{text-align:center;}
+.dz-text h3{font-family:'Syne',sans-serif;font-size:1.1rem;color:var(--text2);margin-bottom:5px;}
+.dz-text p{font-size:0.78rem;color:var(--text3);}
+#fileInput{display:none;}
+
+/* Processing overlay */
+.processing-overlay{
+  position:absolute;inset:0;display:none;
+  align-items:center;justify-content:center;flex-direction:column;gap:12px;
+  background:rgba(7,10,18,0.75);z-index:50;backdrop-filter:blur(4px);
+}
+.processing-overlay.show{display:flex;}
+.spinner{
+  width:42px;height:42px;border-radius:50%;
+  border:3px solid var(--surface3);
+  border-top-color:var(--accent);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.processing-text{font-family:'Space Mono',monospace;font-size:0.78rem;color:var(--accent);}
+
+/* Histograms */
+.histogram-row{
+  display:flex;border-top:1px solid var(--border);
+  height:80px;flex-shrink:0;
+}
+.hist-pane{
+  flex:1;position:relative;overflow:hidden;
+}
+.hist-pane canvas{width:100%;height:100%;}
+.hist-label{
+  position:absolute;top:4px;left:8px;
+  font-size:0.6rem;font-family:'Space Mono',monospace;color:var(--text3);
+}
+
+/* ═══════════════════════════════════════════════════════
+   RIGHT SIDEBAR — CONTROLS
+═══════════════════════════════════════════════════════ */
+.controls-panel{
+  width:var(--controls-w);flex-shrink:0;
+  background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.controls-tabs{
+  display:flex;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.ctrl-tab{
+  flex:1;padding:10px 6px;text-align:center;
+  font-size:0.68rem;font-family:'Space Mono',monospace;
+  cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;
+  transition:all 0.2s;letter-spacing:0.04em;
+}
+.ctrl-tab:hover{color:var(--text2);}
+.ctrl-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+.ctrl-content{flex:1;overflow-y:auto;}
+.ctrl-section{padding:14px;}
+.ctrl-section+.ctrl-section{border-top:1px solid var(--border);}
+
+.ctrl-label{
+  font-size:0.65rem;color:var(--text3);letter-spacing:0.08em;
+  text-transform:uppercase;font-family:'Space Mono',monospace;
+  margin-bottom:10px;display:flex;align-items:center;gap:6px;
+}
+.ctrl-label span{
+  background:var(--surface3);border:1px solid var(--border);
+  padding:2px 7px;border-radius:4px;color:var(--accent);font-size:0.7rem;
+}
+
+/* Sliders */
+.param-row{margin-bottom:12px;}
+.param-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:5px;
+}
+.param-name{font-size:0.76rem;color:var(--text2);}
+.param-value{
+  font-family:'Space Mono',monospace;font-size:0.72rem;
+  color:var(--accent);background:rgba(0,229,255,0.08);
+  padding:2px 8px;border-radius:4px;min-width:42px;text-align:center;
+}
+input[type=range]{
+  width:100%;-webkit-appearance:none;height:4px;
+  background:var(--surface3);border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--accent);cursor:pointer;transition:transform 0.1s;
+  box-shadow:0 0 6px rgba(0,229,255,0.4);
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);}
+
+/* Selects */
+select{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);padding:7px 10px;border-radius:7px;font-size:0.78rem;
+  outline:none;cursor:pointer;font-family:'DM Sans',sans-serif;
+  transition:border-color 0.2s;
+}
+select:focus{border-color:var(--accent);}
+
+/* Metrics */
+.metrics-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+}
+.metric-card{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:10px;text-align:center;
+  transition:all 0.3s;
+}
+.metric-card.highlight{border-color:var(--accent);background:rgba(0,229,255,0.05);}
+.metric-val{
+  font-family:'Space Mono',monospace;font-size:1rem;
+  font-weight:700;color:var(--accent);margin-bottom:3px;
+}
+.metric-val.good{color:var(--green);}
+.metric-val.bad{color:var(--red);}
+.metric-name{font-size:0.62rem;color:var(--text3);letter-spacing:0.06em;}
+.metric-unit{font-size:0.58rem;color:var(--text3);margin-top:1px;}
+
+/* Session selector */
+.session-row{
+  display:flex;gap:8px;align-items:center;margin-bottom:10px;
+}
+.session-row select{flex:1;}
+.btn-sm{
+  padding:6px 10px;border-radius:6px;font-size:0.72rem;
+  cursor:pointer;transition:all 0.15s;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);white-space:nowrap;
+}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+
+/* Kernel visualizer */
+.kernel-grid{
+  display:grid;gap:2px;margin-top:8px;
+}
+.kernel-cell{
+  aspect-ratio:1;border-radius:3px;display:flex;
+  align-items:center;justify-content:center;
+  font-family:'Space Mono',monospace;font-size:0.6rem;
+  transition:background 0.3s;
+}
+
+/* History items */
+.hist-item{
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  cursor:pointer;transition:background 0.15s;
+}
+.hist-item:hover{background:var(--surface2);}
+.hist-item-header{
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;
+}
+.hist-item-filter{
+  font-size:0.78rem;font-weight:600;color:var(--text);
+  font-family:'Space Mono',monospace;
+}
+.hist-item-psnr{
+  font-size:0.7rem;font-family:'Space Mono',monospace;color:var(--green);
+}
+.hist-item-meta{
+  font-size:0.68rem;color:var(--text3);
+  display:flex;align-items:center;gap:8px;
+}
+.hist-item-cat{
+  padding:1px 5px;border-radius:3px;
+  background:var(--surface3);font-size:0.62rem;
+}
+.hist-empty{
+  padding:30px 16px;text-align:center;color:var(--text3);
+  font-size:0.8rem;
+}
+
+/* ── TOAST NOTIFICATIONS ── */
+#toastContainer{
+  position:fixed;bottom:20px;right:20px;z-index:1000;
+  display:flex;flex-direction:column;gap:8px;
+}
+.toast{
+  padding:10px 16px;border-radius:8px;font-size:0.78rem;
+  border:1px solid;display:flex;align-items:center;gap:8px;
+  animation:slideIn 0.3s ease;max-width:300px;
+  font-family:'DM Sans',sans-serif;
+}
+.toast-success{background:rgba(0,230,118,0.1);border-color:rgba(0,230,118,0.3);color:var(--green);}
+.toast-error{background:rgba(255,68,68,0.1);border-color:rgba(255,68,68,0.3);color:var(--red);}
+.toast-info{background:rgba(0,229,255,0.1);border-color:rgba(0,229,255,0.3);color:var(--accent);}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+@keyframes slideOut{from{opacity:1;}to{opacity:0;transform:translateX(120%);}}
+
+/* ── MODAL ── */
+.modal-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(7,10,18,0.85);backdrop-filter:blur(6px);
+  display:none;align-items:center;justify-content:center;
+}
+.modal-overlay.show{display:flex;}
+.modal-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:24px;min-width:300px;max-width:420px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-title{
+  font-family:'Syne',sans-serif;font-size:1.1rem;
+  color:var(--text);margin-bottom:16px;
+}
+.modal-input{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);padding:9px 12px;border-radius:8px;font-size:0.85rem;
+  outline:none;font-family:'DM Sans',sans-serif;margin-bottom:14px;
+  transition:border-color 0.2s;
+}
+.modal-input:focus{border-color:var(--accent);}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;}
+.modal-btn{
+  padding:8px 18px;border-radius:7px;font-size:0.8rem;
+  cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;
+  border:1px solid var(--border);transition:all 0.15s;
+}
+.modal-btn-cancel{background:transparent;color:var(--text2);}
+.modal-btn-cancel:hover{border-color:var(--text2);}
+.modal-btn-confirm{
+  background:linear-gradient(135deg,var(--accent),rgba(0,200,230,0.8));
+  color:#070a12;font-weight:700;border-color:transparent;
+}
+.modal-btn-confirm:hover{box-shadow:var(--glow);}
+
+/* ── DIVP CONCEPT TAGS ── */
+.concept-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.concept-tag{
+  font-size:0.6rem;font-family:'Space Mono',monospace;
+  padding:2px 7px;border-radius:4px;
+  background:rgba(124,77,255,0.12);
+  color:#b388ff;border:1px solid rgba(124,77,255,0.2);
+}
+
+/* backend info bar */
+.info-bar{
+  border-top:1px solid var(--border);padding:6px 14px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface);
+}
+.info-bar-text{font-size:0.62rem;font-family:'Space Mono',monospace;color:var(--text3);}
+.info-bar-text span{color:var(--accent);}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🔬</div>
+    <div>
+      <div class="logo-text">PIXLENS</div>
+      <div class="logo-sub">PIXEL INTELLIGENCE &amp; LEARNING ENHANCEMENT SYSTEM</div>
+    </div>
+  </div>
+  <div class="header-center">
+    <span class="badge badge-nep">NEP 2020</span>
+    <span class="badge badge-divp">DIVP PROJECT</span>
+  </div>
+  <div class="header-right">
+    <div id="serverStatus" class="offline">
+      <div class="dot"></div>
+      <span id="serverText">Connecting…</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════ MAIN -->
+<div class="app-body">
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h3>Filters</h3>
+      <span id="filterCount">—</span>
+    </div>
+    <div class="filter-search">
+      <input type="text" id="filterSearch" placeholder="Search filters…" oninput="searchFilters(this.value)"/>
+    </div>
+    <div class="filter-list" id="filterList">
+      <div style="padding:20px;text-align:center;color:var(--text3);font-size:0.8rem;">
+        Loading filters…
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER CANVAS -->
+  <main class="canvas-area">
+    <div class="canvas-toolbar">
+      <div class="toolbar-group">
+        <button class="tb-btn tb-btn-ghost" onclick="triggerFileInput()" title="Upload image">
+          📂 Open
+        </button>
+        <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)"/>
+        <button class="tb-btn tb-btn-ghost" id="btnSave" onclick="saveProcessed()" disabled title="Download result">
+          💾 Save
+        </button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <div class="view-modes">
+        <button class="view-btn active" onclick="setView('split')"   title="Side by side">⬛⬛</button>
+        <button class="view-btn"        onclick="setView('original')" title="Original only">▶ ORIG</button>
+        <button class="view-btn"        onclick="setView('processed')" title="Processed only">▶ PROC</button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <span id="currentFilter" style="display:none"></span>
+      <button class="tb-btn tb-btn-primary" id="btnApply" onclick="applyFilter()" disabled>
+        ▶ Apply Filter
+      </button>
+      <button class="tb-btn tb-btn-orange" id="btnBookmark" onclick="bookmarkResult()" style="display:none">
+        ★ Bookmark
+      </button>
+    </div>
+
+    <!-- OFFLINE BANNER -->
+    <div id="offlineBanner" style="display:none;background:rgba(255,68,68,0.1);border-bottom:1px solid rgba(255,68,68,0.3);padding:9px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <span style="font-size:0.78rem;color:#ff6b6b;">⚠ Backend offline — filters will not work</span>
+      <span style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--text2);">Start it: <span style="color:var(--accent);">cd PIXLENS/backend &amp;&amp; python app.py</span></span>
+      <button onclick="retryConnection()" style="padding:4px 12px;border-radius:5px;border:1px solid rgba(255,107,53,0.4);background:rgba(255,107,53,0.1);color:var(--accent3);font-size:0.72rem;cursor:pointer;">↻ Retry</button>
+    </div>
+
+    <!-- CANVASES -->
+    <div class="canvas-wrapper">
+      <!-- Original -->
+      <div class="canvas-pane" id="paneOrig" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="triggerFileInput()">
+        <span class="canvas-label">ORIGINAL</span>
+        <div class="drop-zone" id="dropZone">
+          <div class="dz-icon">📷</div>
+          <div class="dz-text">
+            <h3>Drop Image Here</h3>
+            <p>or click to browse<br><span style="font-size:0.7rem;opacity:0.6">PNG · JPG · BMP · TIFF · WEBP</span></p>
+          </div>
+        </div>
+        <canvas id="canvasOrig" style="display:none"></canvas>
+      </div>
+
+      <div class="canvas-divider"></div>
+
+      <!-- Processed -->
+      <div class="canvas-pane" id="paneProc">
+        <span class="canvas-label">PROCESSED</span>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text3);" id="procPlaceholder">
+          <span style="font-size:2rem;">⚗</span>
+          <span style="font-size:0.78rem;">Apply a filter to see result</span>
+        </div>
+        <canvas id="canvasProc" style="display:none"></canvas>
+        <div class="processing-overlay" id="processingOverlay">
+          <div class="spinner"></div>
+          <div class="processing-text" id="processingText">Processing…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTOGRAMS -->
+    <div class="histogram-row">
+      <div class="hist-pane">
+        <span class="hist-label">ORIGINAL HISTOGRAM</span>
+        <canvas id="histOrig"></canvas>
+      </div>
+      <div style="width:1px;background:var(--border);"></div>
+      <div class="hist-pane">
+        <span class="hist-label">PROCESSED HISTOGRAM</span>
+        <canvas id="histProc"></canvas>
+      </div>
+    </div>
+
+    <!-- INFO BAR -->
+    <div class="info-bar">
+      <span class="info-bar-text">Backend: <span>http://localhost:5000</span></span>
+      <span class="info-bar-text" id="imgInfo">No image loaded</span>
+      <span class="info-bar-text">Session: <span id="sessionLabel">—</span></span>
+    </div>
+  </main>
+
+  <!-- RIGHT CONTROLS -->
+  <aside class="controls-panel">
+    <div class="controls-tabs">
+      <div class="ctrl-tab active" onclick="switchTab('params')">PARAMS</div>
+      <div class="ctrl-tab"       onclick="switchTab('metrics')">METRICS</div>
+      <div class="ctrl-tab"       onclick="switchTab('history')">HISTORY</div>
+      <div class="ctrl-tab"       onclick="switchTab('session')">SESSION</div>
+    </div>
+
+    <div class="ctrl-content" id="ctrlContent">
+      <!-- PARAMS TAB (default) -->
+      <div id="tab-params">
+        <div class="ctrl-section">
+          <div class="ctrl-label">Filter Parameters</div>
+          <div id="paramsContainer">
+            <div style="color:var(--text3);font-size:0.78rem;">Select a filter to see its parameters.</div>
+          </div>
+        </div>
+        <div class="ctrl-section" id="kernelSection" style="display:none">
+          <div class="ctrl-label">Kernel / Mask</div>
+          <div id="kernelViz"></div>
+        </div>
+        <div class="ctrl-section">
+          <div class="ctrl-label">DIVP Concepts</div>
+          <div class="concept-tags" id="conceptTags">
+            <span class="concept-tag">Select a filter</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- METRICS TAB -->
+      <div id="tab-metrics" style="display:none">
+        <div class="ctrl-section">
+          <div class="ctrl-label">Quality Metrics</div>
+          <div class="metrics-grid">
+            <div class="metric-card" id="mc-psnr">
+              <div class="metric-val" id="mv-psnr">—</div>
+              <div class="metric-name">PSNR</div>
+              <div class="metric-unit">dB  (higher=better)</div>
+            </div>
+            <div class="metric-card" id="mc-mse">
+              <div class="metric-val" id="mv-mse">—</div>
+              <div class="metric-name">MSE</div>
+              <div class="metric-unit">lower = better</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-val" id="mv-mae">—</div>
+              <div class="metric-name">MAE</div>
+              <div class="metric-unit">lower = better</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-val" id="mv-std">—</div>
+              <div class="metric-name">STD DEV</div>
+              <div class="metric-unit">processed image</div>
+            </div>
+          </div>
+        </div>
+        <div class="ctrl-section">
+          <div class="ctrl-label">Performance</div>
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-val" id="mv-time" style="color:var(--gold)">—</div>
+              <div class="metric-name">PROC TIME</div>
+              <div class="metric-unit">milliseconds</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-val" id="mv-category" style="color:var(--accent2);font-size:0.72rem">—</div>
+              <div class="metric-name">CATEGORY</div>
+              <div class="metric-unit">DIVP domain</div>
+            </div>
+          </div>
+        </div>
+        <div class="ctrl-section">
+          <div class="ctrl-label">Image Info</div>
+          <div style="font-size:0.75rem;color:var(--text2);line-height:1.8;">
+            <div>Dimensions: <span id="mi-dims" style="color:var(--accent);font-family:'Space Mono',monospace;">—</span></div>
+            <div>Record ID:  <span id="mi-recid" style="color:var(--accent);font-family:'Space Mono',monospace;">—</span></div>
+            <div>Filter:     <span id="mi-filter" style="color:var(--accent);font-family:'Space Mono',monospace;">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HISTORY TAB -->
+      <div id="tab-history" style="display:none">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;">
+          <button class="btn-sm" onclick="loadHistory()" style="flex:1">↻ Refresh</button>
+          <button class="btn-sm" onclick="exportHistory('csv')" title="Export CSV">CSV</button>
+          <button class="btn-sm" onclick="exportHistory('json')" title="Export JSON">JSON</button>
+        </div>
+        <div id="historyList">
+          <div class="hist-empty">No history yet.<br>Apply filters to build history.</div>
+        </div>
+      </div>
+
+      <!-- SESSION TAB -->
+      <div id="tab-session" style="display:none">
+        <div class="ctrl-section">
+          <div class="ctrl-label">Current Session</div>
+          <div class="session-row">
+            <select id="sessionSelect" onchange="switchSession(this.value)"></select>
+            <button class="btn-sm" onclick="showNewSessionModal()">+ New</button>
+          </div>
+          <button class="btn-sm" style="width:100%;margin-bottom:6px;" onclick="loadHistory()">↻ Load History</button>
+        </div>
+        <div class="ctrl-section">
+          <div class="ctrl-label">Backend Stats</div>
+          <div id="statsPanel" style="font-size:0.75rem;color:var(--text2);line-height:2;">
+            <div>Click refresh to load stats.</div>
+          </div>
+          <button class="btn-sm" style="width:100%;margin-top:8px;" onclick="loadStats()">↻ Refresh Stats</button>
+        </div>
+        <div class="ctrl-section">
+          <div class="ctrl-label">Built-in Test Images</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <button class="btn-sm" onclick="loadTestImage('gradient')">Gradient</button>
+            <button class="btn-sm" onclick="loadTestImage('shapes')">Shapes</button>
+            <button class="btn-sm" onclick="loadTestImage('checker')">Checker</button>
+            <button class="btn-sm" onclick="loadTestImage('noise')">Noisy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toastContainer"></div>
+
+<!-- NEW SESSION MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <div class="modal-title">Create New Session</div>
+    <input type="text" class="modal-input" id="modalSessionName" placeholder="Session name (e.g. Lab 3 — Edge Detection)"/>
+    <input type="text" class="modal-input" id="modalSessionDesc" placeholder="Description (optional)"/>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn modal-btn-confirm" onclick="confirmNewSession()">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  PIXLENS — index.html  JavaScript
+//  All communication with the Flask backend happens via fetch()
+//  pointing at http://localhost:5000/api/...
+// ═══════════════════════════════════════════════════════════════
+
+const API = 'http://localhost:5000/api';
+
+// ── STATE ────────────────────────────────────────────────────────
+const state = {
+  originalImage:   null,   // ImageData of original
+  processedImage:  null,   // ImageData of processed
+  selectedFilter:  null,   // filter name string
+  sessionId:       1,
+  lastRecordId:    null,
+  lastMetrics:     null,
+  viewMode:        'split',
+  serverOnline:    false,
+  filterRegistry:  {},     // { category: [filter_name, ...] }
+  allFilters:      [],     // flat list for search
+};
+
+// ── FILTER METADATA ──────────────────────────────────────────────
+// Maps filter_name → { label, concepts, params[] }
+const FILTER_META = {
+  // Spatial
+  mean:         { label:'Mean Filter',         concepts:['CONVOLUTION','BOX FILTER','LINEAR'],
+    params:[{id:'ksize',label:'Kernel Size',min:1,max:15,step:2,default:3,unit:'px'}] },
+  gaussian:     { label:'Gaussian Filter',     concepts:['GAUSSIAN KERNEL','σ (SIGMA)','CONVOLUTION'],
+    params:[{id:'ksize',label:'Kernel Size',min:3,max:15,step:2,default:5,unit:'px'},
+            {id:'sigma',label:'Sigma (σ)',min:0.1,max:5,step:0.1,default:1.5,unit:''}] },
+  median:       { label:'Median Filter',       concepts:['ORDER-STATISTIC','NON-LINEAR','RANK FILTER'],
+    params:[{id:'ksize',label:'Kernel Size',min:1,max:11,step:2,default:3,unit:'px'}] },
+  bilateral:    { label:'Bilateral Filter',    concepts:['EDGE-PRESERVING','NON-LINEAR','TWO GAUSSIANS'],
+    params:[{id:'ksize',label:'Kernel Size',min:3,max:9,step:2,default:5,unit:'px'},
+            {id:'sigma_space',label:'Sigma Space',min:0.5,max:5,step:0.5,default:1.5,unit:''},
+            {id:'sigma_color',label:'Sigma Color',min:10,max:200,step:10,default:50,unit:''}] },
+  sharpen:      { label:'Sharpen (Unsharp)',   concepts:['UNSHARP MASK','HIGH-BOOST','ENHANCEMENT'],
+    params:[{id:'amount',label:'Amount',min:0.5,max:5,step:0.1,default:1.5,unit:'x'}] },
+  laplacian:    { label:'Laplacian',           concepts:['2ND DERIVATIVE','EDGE ENHANCE','∇² OPERATOR'],
+    params:[{id:'type',label:'Kernel Type',type:'select',options:['4-connected','8-connected'],default:'4-connected'},
+            {id:'scale',label:'Scale',min:0.5,max:3,step:0.1,default:1.0,unit:''}] },
+  high_boost:   { label:'High-Boost Filter',   concepts:['HIGH-BOOST','FREQUENCY EMPHASIS'],
+    params:[{id:'blur_sigma',label:'Blur Sigma',min:0.5,max:3,step:0.1,default:1.0,unit:''},
+            {id:'boost_factor',label:'Boost Factor',min:1,max:5,step:0.1,default:2.0,unit:'x'}] },
+  // Point
+  negative:     { label:'Image Negative',      concepts:['COMPLEMENT','s=(L-1)-r','POINT TRANSFORM'], params:[] },
+  log_transform:{ label:'Log Transform',       concepts:['LOG TRANSFORM','s=c·log(1+r)','DYNAMIC RANGE'],
+    params:[{id:'c',label:'Scale c',min:0.5,max:5,step:0.1,default:1.0,unit:''}] },
+  gamma:        { label:'Gamma Correction',    concepts:['POWER LAW','γ (GAMMA)','BRIGHTNESS'],
+    params:[{id:'gamma',label:'Gamma (γ)',min:0.1,max:5,step:0.1,default:1.5,unit:''}] },
+  // Edges
+  roberts:      { label:'Roberts Operator',    concepts:['2×2 KERNEL','DIAGONAL GRADIENT','1ST DERIVATIVE'], params:[] },
+  prewitt:      { label:'Prewitt Operator',    concepts:['GRADIENT','3×3 KERNEL','UNIFORM WEIGHTS'],
+    params:[{id:'dir',label:'Direction',type:'select',options:['Combined','X only','Y only'],default:'Combined'}] },
+  sobel:        { label:'Sobel Operator',      concepts:['GRADIENT','CENTRE-WEIGHTED','Gx Gy |G|'],
+    params:[{id:'dir',label:'Direction',type:'select',options:['Combined','X only','Y only'],default:'Combined'}] },
+  log:          { label:'LoG (Marr-Hildreth)', concepts:['LAPLACIAN OF GAUSSIAN','ZERO CROSSING','σ SMOOTHING'],
+    params:[{id:'sigma',label:'Sigma (σ)',min:0.5,max:4,step:0.1,default:1.5,unit:''}] },
+  canny:        { label:'Canny Edge Detector', concepts:['5-STAGE PIPELINE','NMS','HYSTERESIS','DOUBLE THRESHOLD'],
+    params:[{id:'sigma',label:'Gauss Sigma',min:0.5,max:3,step:0.1,default:1.0,unit:''},
+            {id:'lowT',label:'Low Threshold',min:5,max:100,step:5,default:20,unit:''},
+            {id:'highT',label:'High Threshold',min:20,max:200,step:5,default:60,unit:''}] },
+  // Frequency
+  lpf_ideal:    { label:'Ideal LPF',           concepts:['IDEAL LOW-PASS','D₀ CUTOFF','GIBBS RINGING'],
+    params:[{id:'cutoff',label:'Cutoff D₀',min:5,max:150,step:5,default:30,unit:'px'}] },
+  hpf_ideal:    { label:'Ideal HPF',           concepts:['IDEAL HIGH-PASS','D₀ CUTOFF','FREQUENCY DOMAIN'],
+    params:[{id:'cutoff',label:'Cutoff D₀',min:5,max:150,step:5,default:30,unit:'px'}] },
+  lpf_butterworth:{ label:'Butterworth LPF',   concepts:['SMOOTH ROLLOFF','ORDER n','NO RINGING'],
+    params:[{id:'cutoff',label:'Cutoff D₀',min:5,max:150,step:5,default:40,unit:'px'},
+            {id:'order',label:'Order n',min:1,max:8,step:1,default:2,unit:''}] },
+  hpf_butterworth:{ label:'Butterworth HPF',   concepts:['HIGH-PASS','BUTTERWORTH','SMOOTH ROLLOFF'],
+    params:[{id:'cutoff',label:'Cutoff D₀',min:5,max:150,step:5,default:40,unit:'px'},
+            {id:'order',label:'Order n',min:1,max:8,step:1,default:2,unit:''}] },
+  lpf_gaussian: { label:'Gaussian LPF',        concepts:['GAUSSIAN LOW-PASS','NO RINGING','SMOOTHEST'],
+    params:[{id:'cutoff',label:'Cutoff D₀',min:5,max:150,step:5,default:30,unit:'px'}] },
+  hpf_gaussian: { label:'Gaussian HPF',        concepts:['GAUSSIAN HIGH-PASS','EDGE ENHANCE'],
+    params:[{id:'cutoff',label:'Cutoff D₀',min:5,max:150,step:5,default:30,unit:'px'}] },
+  band_pass:    { label:'Band-Pass Filter',     concepts:['BAND-PASS','FREQUENCY RING','BUTTERWORTH'],
+    params:[{id:'cutoff',label:'Center D₀',min:10,max:150,step:5,default:40,unit:'px'},
+            {id:'order',label:'Order n',min:1,max:5,step:1,default:2,unit:''}] },
+  band_stop:    { label:'Band-Stop (Notch)',    concepts:['NOTCH FILTER','BAND REJECT','PERIODIC NOISE'],
+    params:[{id:'cutoff',label:'Center D₀',min:10,max:150,step:5,default:40,unit:'px'},
+            {id:'order',label:'Order n',min:1,max:5,step:1,default:2,unit:''}] },
+  fft_spectrum: { label:'FFT Spectrum',         concepts:['2D DFT','MAGNITUDE SPECTRUM','LOG SCALE'], params:[] },
+  // Histogram
+  hist_eq:      { label:'Histogram Equalization',concepts:['CDF MAPPING','CONTRAST ENHANCE','UNIFORM HIST'], params:[] },
+  hist_spec:    { label:'Histogram Specification',concepts:['HISTOGRAM MATCHING','TARGET DISTRIBUTION'],
+    params:[{id:'target_shape',label:'Target Shape',type:'select',options:['uniform','gaussian','rayleigh','exponential'],default:'gaussian'}] },
+  contrast_stretch:{ label:'Contrast Stretching',concepts:['LINEAR STRETCH','PERCENTILE CLIP','DYNAMIC RANGE'],
+    params:[{id:'low',label:'Low Percentile',min:0,max:10,step:0.5,default:1,unit:'%'},
+            {id:'high',label:'High Percentile',min:90,max:100,step:0.5,default:99,unit:'%'}] },
+  threshold:    { label:'Image Thresholding',   concepts:['BINARY THRESHOLD','OTSU METHOD','SEGMENTATION'],
+    params:[{id:'thresh',label:'Threshold',min:0,max:255,step:1,default:128,unit:''},
+            {id:'mode',label:'Mode',type:'select',options:['binary','otsu'],default:'binary'}] },
+  // Noise
+  noise_gaussian:{ label:'Gaussian Noise',      concepts:['ADDITIVE NOISE','N(0,σ²)','SENSOR NOISE'],
+    params:[{id:'sigma',label:'Sigma (σ)',min:1,max:80,step:1,default:20,unit:''}] },
+  noise_sp:     { label:'Salt & Pepper Noise',  concepts:['IMPULSE NOISE','DENSITY','CORRUPTED PIXELS'],
+    params:[{id:'density',label:'Density',min:0.01,max:0.2,step:0.01,default:0.05,unit:''}] },
+  noise_poisson:{ label:'Poisson Noise',        concepts:['SHOT NOISE','SIGNAL-DEPENDENT','PHOTON COUNT'],
+    params:[{id:'scale',label:'Scale',min:0.5,max:5,step:0.1,default:1.0,unit:''}] },
+  noise_speckle:{ label:'Speckle Noise',        concepts:['MULTIPLICATIVE','COHERENT IMAGING','VARIANCE'],
+    params:[{id:'variance',label:'Variance',min:0.01,max:0.3,step:0.01,default:0.05,unit:''}] },
+  noise_uniform:{ label:'Uniform Noise',        concepts:['UNIFORM DISTRIBUTION','QUANTISATION NOISE'],
+    params:[{id:'low',label:'Min',min:-80,max:0,step:5,default:-30,unit:''},
+            {id:'high',label:'Max',min:0,max:80,step:5,default:30,unit:''}] },
+  // Restoration
+  wiener:       { label:'Wiener Filter',        concepts:['OPTIMAL FILTER','MSE MINIMISE','K=σn²/σs²'],
+    params:[{id:'noise_ratio',label:'Noise Ratio K',min:0.001,max:0.5,step:0.001,default:0.01,unit:''}] },
+  adaptive_median:{ label:'Adaptive Median',    concepts:['VARIABLE WINDOW','IMPULSE REMOVAL','ADAPTIVE'],
+    params:[{id:'max_ksize',label:'Max Kernel',min:3,max:11,step:2,default:7,unit:'px'}] },
+  cls_filter:   { label:'Constrained LS',       concepts:['REGULARISATION','LAPLACIAN CONSTRAINT','γ PARAM'],
+    params:[{id:'gamma',label:'Gamma (γ)',min:0.001,max:1,step:0.001,default:0.1,unit:''}] },
+  // Morphology
+  erode:        { label:'Erosion (A⊖B)',         concepts:['EROSION','STRUCTURING ELEMENT','SHRINK'],
+    params:[{id:'ksize',label:'SE Size',min:1,max:11,step:2,default:3,unit:'px'},
+            {id:'iters',label:'Iterations',min:1,max:5,step:1,default:1,unit:''}] },
+  dilate:       { label:'Dilation (A⊕B)',        concepts:['DILATION','STRUCTURING ELEMENT','EXPAND'],
+    params:[{id:'ksize',label:'SE Size',min:1,max:11,step:2,default:3,unit:'px'},
+            {id:'iters',label:'Iterations',min:1,max:5,step:1,default:1,unit:''}] },
+  opening:      { label:'Opening (A∘B)',         concepts:['EROSION + DILATION','NOISE REMOVAL','OPENING'],
+    params:[{id:'ksize',label:'SE Size',min:1,max:11,step:2,default:3,unit:'px'}] },
+  closing:      { label:'Closing (A•B)',         concepts:['DILATION + EROSION','FILL HOLES','CLOSING'],
+    params:[{id:'ksize',label:'SE Size',min:1,max:11,step:2,default:3,unit:'px'}] },
+  morph_gradient:{ label:'Morph Gradient',       concepts:['DILATION - EROSION','BOUNDARY','OUTLINE'],
+    params:[{id:'ksize',label:'SE Size',min:1,max:11,step:2,default:3,unit:'px'}] },
+  top_hat:      { label:'Top-Hat Transform',    concepts:['ORIG - OPENING','BRIGHT DETAILS','TOP-HAT'],
+    params:[{id:'ksize',label:'SE Size',min:1,max:15,step:2,default:5,unit:'px'}] },
+  black_hat:    { label:'Black-Hat Transform',  concepts:['CLOSING - ORIG','DARK DETAILS','BLACK-HAT'],
+    params:[{id:'ksize',label:'SE Size',min:1,max:15,step:2,default:5,unit:'px'}] },
+  // Color
+  rgb_to_hsi:   { label:'RGB → HSI',            concepts:['COLOR MODEL','HUE SATURATION','INTENSITY'], params:[] },
+  rgb_to_hsv:   { label:'RGB → HSV',            concepts:['COLOR MODEL','HSV/HSB','VALUE'], params:[] },
+  pseudocolor:  { label:'Pseudo-Color',          concepts:['INTENSITY MAPPING','COLORMAP','VISUALIZATION'],
+    params:[{id:'colormap',label:'Colormap',type:'select',options:['jet','hot','cool','rainbow'],default:'jet'}] },
+  color_balance:{ label:'Color Balance',         concepts:['PER-CHANNEL SCALE','RGB WEIGHTS'],
+    params:[{id:'r_scale',label:'Red Scale',min:0,max:3,step:0.1,default:1.0,unit:'x'},
+            {id:'g_scale',label:'Green Scale',min:0,max:3,step:0.1,default:1.0,unit:'x'},
+            {id:'b_scale',label:'Blue Scale',min:0,max:3,step:0.1,default:1.0,unit:'x'}] },
+  // Transforms
+  dct_compress: { label:'DCT Compression',       concepts:['DCT','8×8 BLOCK','JPEG-STYLE','QUANTISATION'],
+    params:[{id:'quality',label:'Quality',min:1,max:95,step:1,default:50,unit:'%'}] },
+  haar_wavelet: { label:'Haar Wavelet',           concepts:['HAAR TRANSFORM','MULTIRESOLUTION','JPEG-2000'],
+    params:[{id:'levels',label:'Levels',min:1,max:4,step:1,default:2,unit:''}] },
+  walsh_hadamard:{ label:'Walsh-Hadamard',        concepts:['WHT','ORTHOGONAL','±1 BASIS'], params:[] },
+};
+
+// ── UTILITY ──────────────────────────────────────────────────────
+async function apiGet(path){
+  const r = await fetch(API+path);
+  return r.json();
+}
+async function apiPost(path, body){
+  const r = await fetch(API+path, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+async function apiPut(path, body){
+  const r = await fetch(API+path, {
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+async function apiDelete(path){
+  const r = await fetch(API+path, {method:'DELETE'});
+  return r.json();
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function toast(msg, type='info'){
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.innerHTML = `<span>${type==='success'?'✓':type==='error'?'✗':'ℹ'}</span> ${msg}`;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(()=>{ el.style.animation='slideOut 0.3s ease forwards'; setTimeout(()=>el.remove(),300); },3000);
+}
+
+// ── SERVER STATUS ─────────────────────────────────────────────────
+async function checkServer(){
+  try{
+    const d = await apiGet('/health');
+    if(d.success){
+      const el = document.getElementById('serverStatus');
+      el.className = 'online';
+      document.getElementById('serverText').textContent = `Online • ${d.total_filters} filters`;
+      state.serverOnline = true;
+      return true;
+    }
+  } catch(e){}
+  const el = document.getElementById('serverStatus');
+  el.className = 'offline';
+  document.getElementById('serverText').textContent = 'Backend offline';
+  state.serverOnline = false;
+  return false;
+}
+
+// ── LOAD FILTERS FROM BACKEND ─────────────────────────────────────
+async function loadFilters(){
+  try{
+    const d = await apiGet('/filters');
+    state.filterRegistry = d.filters;
+    state.allFilters = Object.values(d.filters).flat();
+    document.getElementById('filterCount').textContent = state.allFilters.length + ' filters';
+    renderFilterList(d.filters);
+  }catch(e){
+    // Fall back to local metadata
+    const groups = {};
+    for(const [k,v] of Object.entries(FILTER_META)){
+      const cat = getLocalCat(k);
+      (groups[cat]=groups[cat]||[]).push(k);
+    }
+    state.filterRegistry = groups;
+    state.allFilters = Object.keys(FILTER_META);
+    renderFilterList(groups);
+  }
+}
+function getLocalCat(name){
+  const cats = {
+    'mean':'Spatial','gaussian':'Spatial','median':'Spatial','bilateral':'Spatial','sharpen':'Spatial','laplacian':'Spatial','high_boost':'Spatial',
+    'negative':'Point Transform','log_transform':'Point Transform','gamma':'Point Transform',
+    'roberts':'Edge Detection','prewitt':'Edge Detection','sobel':'Edge Detection','log':'Edge Detection','canny':'Edge Detection',
+    'lpf_ideal':'Frequency','hpf_ideal':'Frequency','lpf_butterworth':'Frequency','hpf_butterworth':'Frequency','lpf_gaussian':'Frequency','hpf_gaussian':'Frequency','band_pass':'Frequency','band_stop':'Frequency','fft_spectrum':'Frequency',
+    'hist_eq':'Histogram','hist_spec':'Histogram','contrast_stretch':'Histogram','threshold':'Segmentation',
+    'noise_gaussian':'Noise','noise_sp':'Noise','noise_poisson':'Noise','noise_speckle':'Noise','noise_uniform':'Noise',
+    'wiener':'Restoration','adaptive_median':'Restoration','cls_filter':'Restoration',
+    'erode':'Morphology','dilate':'Morphology','opening':'Morphology','closing':'Morphology','morph_gradient':'Morphology','top_hat':'Morphology','black_hat':'Morphology',
+    'rgb_to_hsi':'Color','rgb_to_hsv':'Color','pseudocolor':'Color','color_balance':'Color',
+    'dct_compress':'Transform','haar_wavelet':'Transform','walsh_hadamard':'Transform',
+  };
+  return cats[name]||'Other';
+}
+
+function renderFilterList(groups){
+  const list = document.getElementById('filterList');
+  list.innerHTML = '';
+  for(const [cat, names] of Object.entries(groups)){
+    const hdr = document.createElement('div');
+    hdr.className = 'filter-category-header';
+    hdr.textContent = cat;
+    list.appendChild(hdr);
+    names.forEach(name=>{
+      const meta = FILTER_META[name];
+      const item = document.createElement('div');
+      item.className = 'filter-item';
+      item.dataset.filter = name;
+      item.innerHTML = `<span class="fi-name">${meta?meta.label:name}</span>
+        <span class="fi-tag">${name}</span>`;
+      item.onclick = ()=>selectFilter(name);
+      list.appendChild(item);
+    });
+  }
+}
+
+function searchFilters(q){
+  q = q.toLowerCase();
+  document.querySelectorAll('.filter-item').forEach(el=>{
+    const name = el.dataset.filter||'';
+    const meta = FILTER_META[name];
+    const label= meta?meta.label.toLowerCase():'';
+    el.style.display = (name.includes(q)||label.includes(q)) ? '' : 'none';
+  });
+  document.querySelectorAll('.filter-category-header').forEach(hdr=>{
+    hdr.style.display = '';
+  });
+}
+
+// ── SELECT FILTER ─────────────────────────────────────────────────
+function selectFilter(name){
+  state.selectedFilter = name;
+  document.querySelectorAll('.filter-item').forEach(el=>el.classList.remove('active'));
+  const el = document.querySelector(`.filter-item[data-filter="${name}"]`);
+  if(el){ el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
+
+  const meta = FILTER_META[name]||{label:name,concepts:[],params:[]};
+  const cfEl = document.getElementById('currentFilter');
+  cfEl.textContent = meta.label;
+  cfEl.style.display = '';
+
+  // Enable apply button if image loaded
+  if(state.originalImage) document.getElementById('btnApply').disabled = false;
+
+  renderParams(meta.params);
+  renderConcepts(meta.concepts);
+  renderKernel(name);
+  switchTab('params');
+}
+
+// ── RENDER PARAMS ─────────────────────────────────────────────────
+function renderParams(params){
+  const container = document.getElementById('paramsContainer');
+  if(!params||!params.length){
+    container.innerHTML = '<div style="color:var(--text3);font-size:0.78rem;">No parameters — this filter runs automatically.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  params.forEach(p=>{
+    const div = document.createElement('div');
+    div.className = 'param-row';
+    if(p.type==='select'){
+      div.innerHTML = `<div class="param-header">
+        <span class="param-name">${p.label}</span></div>
+        <select id="param_${p.id}" onchange="">
+          ${p.options.map(o=>`<option value="${o}" ${o===p.default?'selected':''}>${o}</option>`).join('')}
+        </select>`;
+    } else {
+      div.innerHTML = `<div class="param-header">
+        <span class="param-name">${p.label}</span>
+        <span class="param-value" id="pval_${p.id}">${p.default}${p.unit||''}</span>
+      </div>
+      <input type="range" id="param_${p.id}"
+        min="${p.min}" max="${p.max}" step="${p.step}" value="${p.default}"
+        oninput="document.getElementById('pval_${p.id}').textContent=this.value+'${p.unit||''}'"/>`;
+    }
+    container.appendChild(div);
+  });
+}
+
+function getParams(){
+  const meta = FILTER_META[state.selectedFilter];
+  if(!meta||!meta.params) return {};
+  const out = {};
+  meta.params.forEach(p=>{
+    const el = document.getElementById('param_'+p.id);
+    if(el) out[p.id] = p.type==='select' ? el.value : parseFloat(el.value);
+  });
+  return out;
+}
+
+function renderConcepts(concepts){
+  const el = document.getElementById('conceptTags');
+  el.innerHTML = (concepts||[]).map(c=>`<span class="concept-tag">${c}</span>`).join('')||'<span class="concept-tag">Select a filter</span>';
+}
+
+function renderKernel(name){
+  const section = document.getElementById('kernelSection');
+  const viz     = document.getElementById('kernelViz');
+  const KERNELS = {
+    mean:       [[1,1,1],[1,1,1],[1,1,1]],
+    laplacian:  [[0,-1,0],[-1,4,-1],[0,-1,0]],
+    sobel_x:    [[-1,0,1],[-2,0,2],[-1,0,1]],
+    sobel_y:    [[-1,-2,-1],[0,0,0],[1,2,1]],
+    prewitt_x:  [[-1,0,1],[-1,0,1],[-1,0,1]],
+    roberts_x:  [[1,0],[0,-1]],
+    sharpen:    [[0,-1,0],[-1,5,-1],[0,-1,0]],
+  };
+  const kmap = {mean:'mean',laplacian:'laplacian',sobel:'sobel_x',prewitt:'prewitt_x',roberts:'roberts_x',sharpen:'sharpen'};
+  const k = KERNELS[kmap[name]];
+  if(!k){ section.style.display='none'; return; }
+  section.style.display='';
+  const size = k.length;
+  viz.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'kernel-grid';
+  grid.style.gridTemplateColumns = `repeat(${size},1fr)`;
+  const flat = k.flat();
+  const maxAbs = Math.max(...flat.map(Math.abs))||1;
+  flat.forEach(v=>{
+    const cell = document.createElement('div');
+    cell.className = 'kernel-cell';
+    const norm = v/maxAbs;
+    const r = norm>0?Math.round(norm*20):0;
+    const b = norm<0?Math.round(-norm*30):0;
+    cell.style.background = `rgba(${r},${r*2+30},${100+b*5},0.6)`;
+    cell.style.border = '1px solid var(--border)';
+    cell.textContent = Number.isInteger(v)?v:v.toFixed(1);
+    grid.appendChild(cell);
+  });
+  viz.appendChild(grid);
+}
+
+// ── IMAGE LOAD ────────────────────────────────────────────────────
+function triggerFileInput(){ document.getElementById('fileInput').click(); }
+
+function handleFileUpload(e){
+  const file = e.target.files[0];
+  if(file) loadImageFile(file);
+}
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if(file && file.type.startsWith('image/')) loadImageFile(file);
+}
+function handleDragOver(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.add('dragover');
+}
+function handleDragLeave(){ document.getElementById('dropZone').classList.remove('dragover'); }
+
+function loadImageFile(file){
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    const img = new window.Image();
+    img.onload = ()=>{
+      drawOriginal(img);
+      toast('Image loaded: '+file.name,'success');
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function drawOriginal(img){
+  const canvas = document.getElementById('canvasOrig');
+  const dz     = document.getElementById('dropZone');
+
+  // Fit within pane
+  const pane = document.getElementById('paneOrig');
+  const maxW = pane.clientWidth  - 20;
+  const maxH = pane.clientHeight - 20;
+  let w = img.width, h = img.height;
+  const scale = Math.min(maxW/w, maxH/h, 1);
+  w = Math.round(w*scale); h = Math.round(h*scale);
+
+  canvas.width  = img.width;
+  canvas.height = img.height;
+  canvas.style.width  = w+'px';
+  canvas.style.height = h+'px';
+  canvas.getContext('2d').drawImage(img,0,0);
+
+  dz.style.display    = 'none';
+  canvas.style.display = '';
+  state.originalImage  = img;
+
+  document.getElementById('imgInfo').textContent = `${img.width} × ${img.height} px`;
+  document.getElementById('btnSave').disabled = false;
+
+  // Enable apply if filter selected
+  if(state.selectedFilter) document.getElementById('btnApply').disabled = false;
+
+  drawHistogram('histOrig', canvas);
+  updateView();
+}
+
+// ── APPLY FILTER ──────────────────────────────────────────────────
+async function applyFilter(){
+  if(!state.originalImage){ toast('Please load an image first','error'); return; }
+  if(!state.selectedFilter){ toast('Please select a filter','error'); return; }
+  if(!state.serverOnline){ toast('Backend server is offline. Start it with: python app.py','error'); return; }
+
+  // Show processing overlay
+  const overlay = document.getElementById('processingOverlay');
+  document.getElementById('processingText').textContent =
+    'Running ' + (FILTER_META[state.selectedFilter]?.label||state.selectedFilter) + '…';
+  overlay.classList.add('show');
+  document.getElementById('btnApply').disabled = true;
+
+  try{
+    // Get base64 of original image
+    const canvas  = document.getElementById('canvasOrig');
+    const b64     = canvas.toDataURL('image/png');
+    const params  = getParams();
+
+    // POST to backend
+    const result = await apiPost('/apply-filter',{
+      image:       b64,
+      filter_name: state.selectedFilter,
+      params:      params,
+      session_id:  state.sessionId
+    });
+
+    if(!result.success){
+      throw new Error(result.error||'Unknown error');
+    }
+
+    // Draw processed image
+    const img = new window.Image();
+    img.onload = ()=>{
+      const procCanvas = document.getElementById('canvasProc');
+      const ph = document.getElementById('procPlaceholder');
+      procCanvas.width  = img.naturalWidth;
+      procCanvas.height = img.naturalHeight;
+      procCanvas.style.width  = document.getElementById('canvasOrig').style.width;
+      procCanvas.style.height = document.getElementById('canvasOrig').style.height;
+      procCanvas.getContext('2d').drawImage(img,0,0);
+      ph.style.display='none';
+      procCanvas.style.display='';
+      state.processedImage = img;
+      state.lastRecordId   = result.record_id;
+      state.lastMetrics    = result.metrics;
+
+      drawHistogram('histProc', procCanvas);
+      updateMetrics(result);
+      updateView();
+      document.getElementById('btnBookmark').style.display='';
+    };
+    img.src = result.processed_image;
+
+    toast(`${FILTER_META[state.selectedFilter]?.label||state.selectedFilter} applied — PSNR: ${result.metrics?.psnr} dB`,'success');
+
+  }catch(e){
+    toast('Filter failed: '+e.message,'error');
+    console.error(e);
+  }finally{
+    overlay.classList.remove('show');
+    document.getElementById('btnApply').disabled = false;
+  }
+}
+
+// ── METRICS ───────────────────────────────────────────────────────
+function updateMetrics(result){
+  const m = result.metrics||{};
+  const psnr = m.psnr??'—';
+
+  document.getElementById('mv-psnr').textContent   = typeof psnr==='number' ? psnr.toFixed(2) : psnr;
+  document.getElementById('mv-mse').textContent    = typeof m.mse==='number' ? m.mse.toFixed(2) : '—';
+  document.getElementById('mv-mae').textContent    = typeof m.mae==='number' ? m.mae.toFixed(2) : '—';
+  document.getElementById('mv-std').textContent    = typeof m.std_dev==='number' ? m.std_dev.toFixed(2) : '—';
+  document.getElementById('mv-time').textContent   = result.time_ms ? result.time_ms+'ms' : '—';
+  document.getElementById('mv-category').textContent = result.category||'—';
+  document.getElementById('mi-dims').textContent   = result.dimensions ? `${result.dimensions.width}×${result.dimensions.height}` : '—';
+  document.getElementById('mi-recid').textContent  = result.record_id||'—';
+  document.getElementById('mi-filter').textContent = result.filter_name||'—';
+
+  // Color code PSNR
+  const pEl = document.getElementById('mv-psnr');
+  if(typeof psnr==='number'){
+    pEl.className = 'metric-val '+(psnr>=40?'good':psnr<25?'bad':'');
+  }
+}
+
+// ── HISTOGRAM ─────────────────────────────────────────────────────
+function drawHistogram(canvasId, sourceCanvas){
+  const hCanvas = document.getElementById(canvasId);
+  const pane    = hCanvas.parentElement;
+  hCanvas.width  = pane.clientWidth;
+  hCanvas.height = pane.clientHeight;
+  const ctx  = hCanvas.getContext('2d');
+  const src  = sourceCanvas.getContext('2d');
+  const imgData = src.getImageData(0,0,sourceCanvas.width,sourceCanvas.height);
+  const data    = imgData.data;
+
+  const W = hCanvas.width, H = hCanvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // Build grayscale histogram
+  const hist = new Array(256).fill(0);
+  for(let i=0;i<data.length;i+=4){
+    const gray = Math.round(0.299*data[i]+0.587*data[i+1]+0.114*data[i+2]);
+    hist[gray]++;
+  }
+  const maxVal = Math.max(...hist)||1;
+  const bw = W/256;
+
+  // Draw gradient fill
+  const grad = ctx.createLinearGradient(0,H,0,0);
+  grad.addColorStop(0,'rgba(0,229,255,0.6)');
+  grad.addColorStop(1,'rgba(124,77,255,0.3)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(0,H);
+  for(let i=0;i<256;i++){
+    const barH = (hist[i]/maxVal)*(H-6);
+    ctx.lineTo(i*bw, H-barH);
+  }
+  ctx.lineTo(W,H);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ── VIEW MODES ────────────────────────────────────────────────────
+function setView(mode){
+  state.viewMode = mode;
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  updateView();
+}
+function updateView(){
+  const orig = document.getElementById('paneOrig');
+  const proc = document.getElementById('paneProc');
+  const div  = document.querySelector('.canvas-divider');
+  if(state.viewMode==='original'){
+    orig.style.display=''; proc.style.display='none'; div.style.display='none';
+  } else if(state.viewMode==='processed'){
+    orig.style.display='none'; proc.style.display=''; div.style.display='none';
+  } else {
+    orig.style.display=''; proc.style.display=''; div.style.display='';
+  }
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────
+function saveProcessed(){
+  const canvas = state.processedImage
+    ? document.getElementById('canvasProc')
+    : document.getElementById('canvasOrig');
+  const a = document.createElement('a');
+  a.download = `pixlens_${state.selectedFilter||'original'}_${Date.now()}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+  toast('Image saved','success');
+}
+
+// ── BOOKMARK ─────────────────────────────────────────────────────
+async function bookmarkResult(){
+  if(!state.lastRecordId){ toast('No result to bookmark yet','error'); return; }
+  try{
+    const label = prompt('Bookmark label:','Favourite result') || 'Favourite';
+    const r = await apiPost(`/bookmark/${state.lastRecordId}`,{label});
+    if(r.success) toast('Bookmarked: '+label,'success');
+    else toast('Bookmark failed','error');
+  }catch(e){ toast('Bookmark failed','error'); }
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────
+async function loadHistory(){
+  try{
+    const d = await apiGet(`/history?limit=30&session_id=${state.sessionId}`);
+    renderHistory(d.history||[]);
+  }catch(e){ toast('Failed to load history','error'); }
+}
+
+function renderHistory(records){
+  const list = document.getElementById('historyList');
+  if(!records.length){
+    list.innerHTML = '<div class="hist-empty">No history yet.<br>Apply filters to build history.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  records.forEach(r=>{
+    const div = document.createElement('div');
+    div.className = 'hist-item';
+    const psnr = typeof r.psnr==='number'?r.psnr.toFixed(1)+'dB':'—';
+    const time = r.applied_at ? r.applied_at.split(' ')[1]||r.applied_at : '—';
+    div.innerHTML = `
+      <div class="hist-item-header">
+        <span class="hist-item-filter">${r.filter_name}</span>
+        <span class="hist-item-psnr">${psnr}</span>
+      </div>
+      <div class="hist-item-meta">
+        <span class="hist-item-cat">${r.filter_category||'—'}</span>
+        <span>${r.width||'?'}×${r.height||'?'}</span>
+        <span>${time}</span>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────
+async function exportHistory(type){
+  try{
+    const d = await apiPost(`/export/${type}`,{session_id:state.sessionId});
+    if(d.success) toast(`Exported ${d.record_count} records to ${type.toUpperCase()}. File saved in database/ folder.`,'success');
+    else toast('Export failed','error');
+  }catch(e){ toast('Export failed','error'); }
+}
+
+// ── SESSIONS ──────────────────────────────────────────────────────
+async function loadSessions(){
+  try{
+    const d = await apiGet('/sessions');
+    const sel = document.getElementById('sessionSelect');
+    sel.innerHTML = '';
+    if(!d.sessions||!d.sessions.length){
+      // Create default session
+      await createDefaultSession();
+      return;
+    }
+    d.sessions.forEach(s=>{
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = `${s.session_name} (${s.operation_count||0} ops)`;
+      if(s.id===state.sessionId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    document.getElementById('sessionLabel').textContent = d.sessions.find(s=>s.id===state.sessionId)?.session_name||'—';
+  }catch(e){}
+}
+
+async function createDefaultSession(){
+  try{
+    const r = await apiPost('/session',{name:'Default Session',description:'Auto-created'});
+    if(r.success && r.session){
+      state.sessionId = r.session.id;
+      await loadSessions();
+    }
+  }catch(e){}
+}
+
+function switchSession(id){
+  state.sessionId = parseInt(id);
+  const sel = document.getElementById('sessionSelect');
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('sessionLabel').textContent = opt?.textContent?.split(' (')[0]||'—';
+  toast('Switched to session: '+opt?.textContent?.split(' (')[0],'info');
+}
+
+function showNewSessionModal(){
+  document.getElementById('modalSessionName').value = '';
+  document.getElementById('modalSessionDesc').value = '';
+  document.getElementById('modalOverlay').classList.add('show');
+  document.getElementById('modalSessionName').focus();
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+async function confirmNewSession(){
+  const name = document.getElementById('modalSessionName').value.trim();
+  const desc = document.getElementById('modalSessionDesc').value.trim();
+  if(!name){ toast('Please enter a session name','error'); return; }
+  try{
+    const r = await apiPost('/session',{name,description:desc});
+    if(r.success){
+      state.sessionId = r.session.id;
+      closeModal();
+      await loadSessions();
+      toast('Session created: '+name,'success');
+    }
+  }catch(e){ toast('Failed to create session','error'); }
+}
+
+// ── STATS ─────────────────────────────────────────────────────────
+async function loadStats(){
+  try{
+    const d = await apiGet('/stats');
+    const s = d.stats||{};
+    document.getElementById('statsPanel').innerHTML = `
+      <div>Total operations: <b style="color:var(--accent)">${s.total_operations||0}</b></div>
+      <div>Sessions: <b style="color:var(--accent)">${s.total_sessions||0}</b></div>
+      <div>Avg PSNR: <b style="color:var(--green)">${s.avg_psnr||'—'} dB</b></div>
+      <div>Best PSNR: <b style="color:var(--green)">${s.best_psnr||'—'} dB</b></div>
+      <div>Most used: <b style="color:var(--accent2)">${s.most_used_filter||'—'}</b></div>
+      <div>Unique filters: <b style="color:var(--gold)">${s.unique_filters||0}</b></div>
+    `;
+  }catch(e){ toast('Failed to load stats','error'); }
+}
+
+// ── TEST IMAGES ───────────────────────────────────────────────────
+function loadTestImage(type){
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+
+  if(type==='gradient'){
+    for(let x=0;x<256;x++) for(let y=0;y<256;y++){
+      ctx.fillStyle=`rgb(${x},${y},${Math.round((x+y)/2)})`;
+      ctx.fillRect(x,y,1,1);
+    }
+  } else if(type==='shapes'){
+    ctx.fillStyle='#111'; ctx.fillRect(0,0,256,256);
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(80,80,50,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(0,229,255,0.8)'; ctx.fillRect(140,30,90,90);
+    ctx.fillStyle='rgba(255,107,53,0.8)';
+    ctx.beginPath(); ctx.moveTo(128,180); ctx.lineTo(60,250); ctx.lineTo(200,250); ctx.fill();
+  } else if(type==='checker'){
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      ctx.fillStyle=(r+c)%2?'#fff':'#111';
+      ctx.fillRect(c*32,r*32,32,32);
+    }
+  } else if(type==='noise'){
+    const id = ctx.createImageData(256,256);
+    for(let i=0;i<id.data.length;i+=4){
+      const v = Math.random()*255;
+      id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]=255;
+    }
+    ctx.putImageData(id,0,0);
+  }
+
+  const img = new window.Image();
+  img.onload = ()=>drawOriginal(img);
+  img.src = canvas.toDataURL();
+  toast('Loaded test image: '+type,'success');
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.ctrl-tab').forEach((t,i)=>{
+    const tabs=['params','metrics','history','session'];
+    t.classList.toggle('active', tabs[i]===name);
+  });
+  ['params','metrics','history','session'].forEach(n=>{
+    const el = document.getElementById('tab-'+n);
+    if(el) el.style.display = n===name?'':'none';
+  });
+  if(name==='history') loadHistory();
+  if(name==='session') { loadSessions(); loadStats(); }
+}
+
+// ── KEYBOARD SHORTCUTS ────────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.target.matches('input,textarea,select')){
+    applyFilter();
+  }
+  if(e.key==='Escape') closeModal();
+});
+
+// ── OFFLINE BANNER TOGGLE ─────────────────────────────────────────
+function setOfflineBanner(show){
+  const banner = document.getElementById('offlineBanner');
+  if(banner) banner.style.display = show ? 'flex' : 'none';
+}
+
+async function retryConnection(){
+  toast('Retrying connection…','info');
+  const online = await checkServer();
+  if(online){
+    setOfflineBanner(false);
+    await loadFilters();
+    await loadSessions();
+    toast('Backend connected!','success');
+  } else {
+    toast('Still offline. Is python app.py running in Terminal 1?','error');
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+(async()=>{
+  // Always load filter list from local metadata first (instant, no server needed)
+  const groups = {};
+  for(const [k] of Object.entries(FILTER_META)){
+    const cat = getLocalCat(k);
+    (groups[cat]=groups[cat]||[]).push(k);
+  }
+  renderFilterList(groups);
+  document.getElementById('filterCount').textContent = Object.keys(FILTER_META).length+' filters';
+
+  // Now check if backend is live
+  const online = await checkServer();
+  if(online){
+    setOfflineBanner(false);
+    await loadFilters();   // replace with server list (may have more)
+    await loadSessions();
+    toast('PIXLENS backend connected ✓','success');
+  } else {
+    setOfflineBanner(true);
+    toast('Backend offline. Open Terminal 2 → cd PIXLENS/backend → python app.py','error');
+  }
+
+  // Auto-retry every 5s so when Terminal 1 starts, UI connects automatically
+  setInterval(async()=>{
+    const was = state.serverOnline;
+    const now = await checkServer();
+    if(!was && now){
+      setOfflineBanner(false);
+      await loadFilters();
+      await loadSessions();
+      toast('Backend reconnected automatically ✓','success');
+    } else if(was && !now){
+      setOfflineBanner(true);
+    }
+  }, 5000);
+})();
+</script>
+</body>
+</html>

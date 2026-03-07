@@ -1,0 +1,9 @@
+# PIXLENS — Python Backend Dependencies
+# Install with: pip install -r requirements.txt
+
+flask==3.0.3
+flask-cors==4.0.1
+numpy==1.26.4
+Pillow==10.3.0
+opencv-python==4.9.0.80
+scipy==1.13.0
